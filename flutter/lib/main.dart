@@ -161,8 +161,9 @@ void runMainApp(bool startService) async {
     if (handledByUniLinks || handleUriLink(cmdArgs: kBootArgs)) {
       windowManager.hide();
     } else {
-      windowManager.show();
-      windowManager.focus();
+      windowManager.hide();
+      //windowManager.show();
+      //windowManager.focus();
       // Move registration of active main window here to prevent from async visible check.
       rustDeskWinManager.registerActiveWindow(kWindowMainId);
     }
